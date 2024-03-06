@@ -54,9 +54,21 @@ async fn main() {
                 },
                 count: None,
             },
-            // Output buffer
+            //length
             wgpu::BindGroupLayoutEntry {
                 binding: 1,
+                visibility: wgpu::ShaderStages::COMPUTE,
+                ty: wgpu::BindingType::Buffer {
+                    ty: wgpu::BufferBindingType::Uniform,
+                    has_dynamic_offset: false,
+                    min_binding_size: wgpu::BufferSize::new(std::mem::size_of::<u32>() as u64),
+                },
+                count: None,
+            },
+
+            // Output buffer
+            wgpu::BindGroupLayoutEntry {
+                binding: 2,
                 visibility: wgpu::ShaderStages::COMPUTE,
                 ty: wgpu::BindingType::Buffer {
                     ty: wgpu::BufferBindingType::Storage { read_only: false },
@@ -67,7 +79,7 @@ async fn main() {
             },
             // Scalar uniform
             wgpu::BindGroupLayoutEntry {
-                binding: 2,
+                binding: 3,
                 visibility: wgpu::ShaderStages::COMPUTE,
                 ty: wgpu::BindingType::Buffer {
                     ty: wgpu::BufferBindingType::Uniform,
@@ -93,8 +105,8 @@ async fn main() {
     });
 
     // Create buffers and bind groups as needed, dispatch the compute work, etc.
-    const buffer_size :usize=4;
-    let input_data = vec![1.0_f32; buffer_size]; // Adjust the size as needed
+    const BUFFER_SIZE :usize=100;//7;
+    let input_data = vec![1.0_f32; BUFFER_SIZE]; // Adjust the size as needed
     let scalar_value = 2.0_f32;
 
     // Create the input buffer
@@ -102,6 +114,12 @@ async fn main() {
         label: Some("Input Buffer"),
         contents: bytemuck::cast_slice(&input_data),
         usage: wgpu::BufferUsages::STORAGE | wgpu::BufferUsages::COPY_DST,
+    });
+
+    let buffer_length_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
+        label: Some("Buffer Length Uniform"),
+        contents: bytemuck::cast_slice(&[BUFFER_SIZE as u32]),
+        usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
     });
 
     // Create the output buffer
@@ -127,14 +145,18 @@ async fn main() {
                 binding: 0,
                 resource: input_buffer.as_entire_binding(),
             },
-            // Output buffer binding
             wgpu::BindGroupEntry {
                 binding: 1,
+                resource: buffer_length_buffer.as_entire_binding(),
+            },
+            // Output buffer binding
+            wgpu::BindGroupEntry {
+                binding: 2,
                 resource: output_buffer.as_entire_binding(),
             },
             // Scalar uniform binding
             wgpu::BindGroupEntry {
-                binding: 2,
+                binding: 3,
                 resource: scalar_buffer.as_entire_binding(),
             },
         ],
@@ -156,7 +178,8 @@ async fn main() {
         compute_pass.set_bind_group(0, &bind_group, &[]);
         // Define the number of workgroups
         //compute_pass.dispatch(workgroups_x, workgroups_y, workgroups_z);
-        compute_pass.dispatch_workgroups(16, 1, 1);
+        //compute_pass.dispatch_workgroups(16, 1, 1);
+        compute_pass.dispatch_workgroups(((BUFFER_SIZE+63)/64).try_into().unwrap(), 1, 1);
     }
     queue.submit(Some(command_encoder.finish()));
 
@@ -181,7 +204,7 @@ async fn main() {
     // Step 1: Create a staging buffer
     let staging_buffer = device.create_buffer(&wgpu::BufferDescriptor {
         label: Some("Staging Buffer"),
-        size: (buffer_size*std::mem::size_of::<f32>()) as u64, // Match the size of the data you want to copy
+        size: (BUFFER_SIZE*std::mem::size_of::<f32>()) as u64, // Match the size of the data you want to copy
         usage: wgpu::BufferUsages::MAP_READ | wgpu::BufferUsages::COPY_DST, // For reading back and as a copy destination
         mapped_at_creation: false,
     });
@@ -196,7 +219,7 @@ async fn main() {
             0, // Source offset
             &staging_buffer, // Destination buffer
             0, // Destination offset
-            (buffer_size*std::mem::size_of::<f32>()) as u64, // Number of bytes to copy
+            (BUFFER_SIZE*std::mem::size_of::<f32>()) as u64, // Number of bytes to copy
         );
         queue.submit(Some(encoder.finish()));
     }
