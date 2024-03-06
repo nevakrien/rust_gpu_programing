@@ -93,7 +93,7 @@ async fn main() {
     });
 
     // Create buffers and bind groups as needed, dispatch the compute work, etc.
-    const buffer_size :usize=1024;
+    const buffer_size :usize=4;
     let input_data = vec![1.0_f32; buffer_size]; // Adjust the size as needed
     let scalar_value = 2.0_f32;
 
@@ -181,7 +181,7 @@ async fn main() {
     // Step 1: Create a staging buffer
     let staging_buffer = device.create_buffer(&wgpu::BufferDescriptor {
         label: Some("Staging Buffer"),
-        size: buffer_size as u64, // Match the size of the data you want to copy
+        size: (buffer_size*std::mem::size_of::<f32>()) as u64, // Match the size of the data you want to copy
         usage: wgpu::BufferUsages::MAP_READ | wgpu::BufferUsages::COPY_DST, // For reading back and as a copy destination
         mapped_at_creation: false,
     });
@@ -196,7 +196,7 @@ async fn main() {
             0, // Source offset
             &staging_buffer, // Destination buffer
             0, // Destination offset
-            buffer_size as u64, // Number of bytes to copy
+            (buffer_size*std::mem::size_of::<f32>()) as u64, // Number of bytes to copy
         );
         queue.submit(Some(encoder.finish()));
     }
