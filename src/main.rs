@@ -201,6 +201,7 @@ async fn main() {
         queue.submit(Some(encoder.finish()));
     }
 
+    let answer: Vec<f32>;
     // Use the oneshot channel and polling as in your snippet to wait for the mapping operation
     {
         let (sender, receiver) = oneshot::channel();
@@ -214,11 +215,13 @@ async fn main() {
         let data_range = staging_buffer.slice(..).get_mapped_range();
         // Use bytemuck to safely cast the byte slice to an f32 slice
         let data: &[f32] = bytemuck::cast_slice(&data_range);
-        println!("Output: {:?}", data);
+        //println!("Output: {:?}", data);
+        answer= data.to_vec();
 
     }
     
     // Remember to unmap the buffer when done
     staging_buffer.unmap();
+    println!("Output: {:?}", answer);
 
 }
